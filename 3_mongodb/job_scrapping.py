@@ -6,7 +6,8 @@ import datetime
 from unicodedata import normalize
 
 
-def compensation_formatting(compensation, result):
+def compensation_formatting(compensation):
+    result = {}
     if compensation is not None:
         c = compensation.text
         c = normalize("NFKD", c)
@@ -44,6 +45,8 @@ def compensation_formatting(compensation, result):
             result['max'] = c
     else:
         result['min'], result['max'], result['currency'] = None, None, None
+
+    return result
 
 
 def superjob_date_format(date_span, result):
@@ -98,8 +101,8 @@ def hh_job_parse(vacancy: str, result: list):
                     info['position'] = title.text
                     info['vacancy_link'] = title['href']
                     compensation = vacancy.find('span', attrs={'data-qa': "vacancy-serp__vacancy-compensation"})
-                    compensation_formatting(compensation, info)
-
+                    comp_dict = compensation_formatting(compensation)
+                    info = info.update(comp_dict)
                     employer = vacancy.find('a', attrs={'data-qa': "vacancy-serp__vacancy-employer"})
                     if employer is not None:
                         info['employer'] = employer.text
@@ -149,8 +152,8 @@ def superjob_parse(vacancy: str, result):
                 info['vacancy_link'] = title['href']
                 compensation = vacancy.find('span', attrs={'class': "f-test-text-company-item-salary"})
                 # func for compensation formatting
-                compensation_formatting(compensation, info)
-
+                comp_dict = compensation_formatting(compensation)
+                info = info.update(comp_dict)
                 if soup.find('span', attrs={'class': "_1BOkc"}) is not None:
                     sj_params['page'] = str(int(sj_params['page']) + 1)
                 v_date = soup.find('span', attrs={'class': '_3mfro f-test-text-company-item-location '
