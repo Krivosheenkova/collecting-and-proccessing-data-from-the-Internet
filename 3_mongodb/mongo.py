@@ -7,21 +7,20 @@
 3. Написать функцию, которая будет добавлять в вашу базу данных только новые вакансии с сайта.
 """
 from pymongo import MongoClient
-
+from datetime import date
 import job_scrapping
 
 vacancy = input('enter vacancy name> ')
 parsed_vacancies = job_scrapping.parse_total_vacancies(vacancy)
 
-MONGO_URI = "localhost:27017"
-MONGO_DB = "job_scrapping"
+client = MongoClient('mongodb://localhost:27017/')
+db = client["job_scrapping"]
+vacancies = db['vacancies_hh_sj']
 
-with MongoClient(MONGO_URI) as client:
-    db = client[MONGO_DB]
-    vacancies = db['vacancies_hh_sj']
+for v in parsed_vacancies:
+    vacancies.replace_one({'vacancy_link': v['vacancy_link']}, v, upsert=True)
 
-    for v in parsed_vacancies:
-        vacancies.replace_one({'vacancy_link': v['vacancy_link']}, v, upsert=True)
+df = job_scrapping.find_query_data(vacancies, 'max', '>', 60000)
+df.to_csv(f'vacancies_{vacancy.replace(" ", "_")}_{date.today()}.csv')
+print('Done')
 
-    df = job_scrapping.find_query_data(vacancies, 'max', '>', 6000)
-    # print(df)

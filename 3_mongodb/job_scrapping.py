@@ -3,38 +3,47 @@ from fake_useragent import UserAgent
 from bs4 import BeautifulSoup as bs
 import pandas as pd
 import datetime
+from unicodedata import normalize
 
 
 def compensation_formatting(compensation, result):
-    c = compensation.text
-    if '/месяц' in c:
-        c = c.replace('/месяц', '')
+    if compensation is not None:
+        c = compensation.text
+        c = normalize("NFKD", c)
+        if '/месяц' in c:
+            c = c.replace('/месяц', '')
 
-    if c.startswith('от'):
-        result['min'] = c[3:-4]
-        result['max'] = None
-        result['currency'] = c[-4:]
+        if c.startswith('от'):
+            result['min'] = c[3:-4]
+            result['max'] = None
+            result['currency'] = c[-4:]
+            result['min'] = int(result['min'].replace(' ', ''))
 
-    elif c.startswith('до'):
-        result['min'] = None
-        result['max'] = c[3:-4]
-        result['currency'] = c[-4:]
+        elif c.startswith('до'):
+            result['min'] = None
+            result['max'] = c[3:-4]
+            result['currency'] = c[-4:]
+            result['max'] = int(result['max'].replace(' ', ''))
 
-    elif '-' in c or '—' in c:
-        tmp = c
+        elif '-' in c or '—' in c:
+            tmp = c
 
-        if '-' in tmp:
-            tmp = tmp.split('-')
+            if '-' in tmp:
+                tmp = tmp.split('-')
+            else:
+                tmp = tmp.split('—')
+
+            tmp.append(tmp[1][-4:])
+            tmp[1] = tmp[1][:-4]
+            result['currency'] = tmp[2].strip()
+            result['min'], result['max'] = tmp[0], tmp[1]
+            result['min'], result['max'] = int(result['min'].replace(' ', '')), int(result['max'].replace(' ', ''))
         else:
-            tmp = tmp.split('—')
-
-        tmp.append(tmp[1][-4:])
-        tmp[1] = tmp[1][:-4]
-        result['currency'] = tmp[2].strip()
-        result['min'], result['max'] = tmp[0], tmp[1]
+            # 'По договоренности'
+            result['min'], result['currency'] = None, None
+            result['max'] = c
     else:
-        result['min'], result['currency'] = None, None
-        result['max'] = c
+        result['min'], result['max'], result['currency'] = None, None, None
 
 
 def superjob_date_format(date_span, result):
@@ -89,16 +98,12 @@ def hh_job_parse(vacancy: str, result: list):
                     info['position'] = title.text
                     info['vacancy_link'] = title['href']
                     compensation = vacancy.find('span', attrs={'data-qa': "vacancy-serp__vacancy-compensation"})
-                    if compensation is not None:
-                        compensation_formatting(compensation, info)
-                    #                         info['compensation'] = str(compensation.text)
-                    else:
-                        info['min'], info['max'], info['currency'] = None, None, None
+                    compensation_formatting(compensation, info)
+
                     employer = vacancy.find('a', attrs={'data-qa': "vacancy-serp__vacancy-employer"})
                     if employer is not None:
                         info['employer'] = employer.text
-                    else:
-                        info['employer'] = None
+
                     v_date = vacancy.find('span', attrs={'class': "vacancy-serp-item__publication-date_s-only"})
                     if v_date is not None:
                         info['date'] = v_date.text
@@ -143,11 +148,9 @@ def superjob_parse(vacancy: str, result):
                     info['employer'] = None
                 info['vacancy_link'] = title['href']
                 compensation = vacancy.find('span', attrs={'class': "f-test-text-company-item-salary"})
-                if compensation is not None:
-                    # func for compensation formatting
-                    compensation_formatting(compensation, info)
-                else:
-                    info['min'], info['max'], info['currency'] = None, None, None
+                # func for compensation formatting
+                compensation_formatting(compensation, info)
+
                 if soup.find('span', attrs={'class': "_1BOkc"}) is not None:
                     sj_params['page'] = str(int(sj_params['page']) + 1)
                 v_date = soup.find('span', attrs={'class': '_3mfro f-test-text-company-item-location '
