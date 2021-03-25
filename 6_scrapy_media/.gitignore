@@ -1,2 +1,4 @@
-/.idea
-/scrapy_env
+./.idea
+./scrapy_env
+
+
